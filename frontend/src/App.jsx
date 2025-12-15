@@ -3,7 +3,7 @@ import Dashboard from "./pages/Dashboard";
 import SubmitReport from "./pages/SubmitReport";
 
 import Navbar from "./components/Navbar";
-import UploadCSV from "./pages/UploadCsv";
+import UploadCSV from "./pages/UploadCSV";
 
 export default function App() {
   return (
