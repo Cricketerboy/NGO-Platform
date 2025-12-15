@@ -14,7 +14,7 @@ export default function UploadCSV() {
 
     const formData = new FormData();
     formData.append("file", file);
-
+   //uploading
     const res = await api.post("/reports/upload", formData, {
   headers: {
     "Content-Type": "multipart/form-data",
