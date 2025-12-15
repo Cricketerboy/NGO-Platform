@@ -28,50 +28,70 @@ const upload = multer({
   }
 });
 
-router.post("/upload", upload.single("file"), async (req, res) => {
-  try {
+router.post("/upload", (req, res) => {
+  upload.single("file")(req, res, async (err) => {
+    if (err) {
+      // Multer-specific errors
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return res.status(400).json({
+            error: "Unexpected file field. Use field name 'file'."
+          });
+        }
+
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({
+            error: "File too large. Max size is 5MB."
+          });
+        }
+
+        return res.status(400).json({ error: err.message });
+      }
+
+      // Unknown error
+      return res.status(500).json({ error: "File upload failed" });
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: "CSV file is required" });
     }
 
-    const jobId = uuid();
+    try {
+      const jobId = uuid();
 
-    await prisma.job.create({
-      data: {
-        id: jobId,
-        status: "processing",
-        totalRows: 0,
-        processedRows: 0,
-        failedRows: 0
-      }
-    });
-
-    /* ===============================
-       Send response IMMEDIATELY
-       =============================== */
-    res.json({ job_id: jobId });
-
-    /* ===============================
-       Start worker asynchronously
-       =============================== */
-    const workerPath =
-      process.env.NODE_ENV === "production"
-        ? path.join(__dirname, "../worker.js")
-        : path.join(__dirname, "../worker.ts");
-
-    setImmediate(() => {
-      new Worker(workerPath, {
-        workerData: {
-          jobId,
-          filePath: req.file!.path
+      await prisma.job.create({
+        data: {
+          id: jobId,
+          status: "processing",
+          totalRows: 0,
+          processedRows: 0,
+          failedRows: 0
         }
       });
-    });
 
-  } catch (error) {
-    console.error("Upload failed:", error);
-    res.status(500).json({ error: "Upload failed" });
-  }
+      // Respond immediately
+      res.json({ job_id: jobId });
+
+      const workerPath =
+        process.env.NODE_ENV === "production"
+          ? path.join(__dirname, "../worker.js")
+          : path.join(__dirname, "../worker.ts");
+
+      setImmediate(() => {
+        new Worker(workerPath, {
+          workerData: {
+            jobId,
+            filePath: req.file!.path
+          }
+        });
+      });
+
+    } catch (error) {
+      console.error("Upload failed:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
 });
+
 
 export default router;
